@@ -1,8 +1,10 @@
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from rest_framework import serializers
-from .models import Post, Comment, Like
+from .models import Profile, Post, Comment, Like, Emoji
 
+
+# Serializer for user registration
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
@@ -27,6 +29,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
         return user
 
+
+# Serializer for user login
 class LoginSerializer(serializers.Serializer):
     username_or_email = serializers.CharField()
     password = serializers.CharField()
@@ -43,23 +47,55 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("Invalid credentials.")
         return user
 
+
+# Serializer for changing user password
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
 
+
+# Serializer for the Profile model
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = ['user', 'profile_picture', 'bio']
+
+
+# Serializer for the Post model
 class PostSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()  # Display the user's username instead of the ID.
+    media_attachments = serializers.ListField(child=serializers.URLField(), required=False)
+    emoji = serializers.CharField(required=False)
+
     class Meta:
         model = Post
-        fields = ['id', 'user', 'title', 'content', 'created_at', 'updated_at', 'image']
+        fields = ['id', 'user', 'title', 'content', 'created_at', 'updated_at', 'image', 'media_attachments', 'emoji']
 
+
+# Serializer for the Comment model
 class CommentSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()  # Display the user's username instead of the ID.
+    post = serializers.StringRelatedField()  # Display the post's title instead of the ID.
+    media_attachments = serializers.ListField(child=serializers.URLField(), required=False)
+    emoji = serializers.CharField(required=False)
+
     class Meta:
         model = Comment
-        fields = ['id', 'user', 'post', 'content', 'created_at']
+        fields = ['id', 'user', 'post', 'content', 'created_at', 'media_attachments', 'emoji']
 
+
+# Serializer for the Like model
 class LikeSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()  # Display the user's username instead of the ID.
+    post = serializers.StringRelatedField()  # Display the post's title instead of the ID.
+
     class Meta:
         model = Like
-        fields = ['id', 'user', 'post', 'created_at']
+        fields = ['user', 'post', 'created_at']
 
 
+# Serializer for the Emoji model
+class EmojiSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Emoji
+        fields = ['id', 'name', 'symbol', 'created_at']

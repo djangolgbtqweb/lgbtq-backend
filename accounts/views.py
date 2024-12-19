@@ -1,24 +1,24 @@
+from django.contrib.auth.models import User
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .forms import UserUpdateForm, ProfileUpdateForm
-from rest_framework.views import APIView
+from rest_framework import generics, status, viewsets
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
-from .serializers import RegisterSerializer, LoginSerializer, ChangePasswordSerializer
-from django.contrib.auth.models import User
 from django.contrib.auth import update_session_auth_hash
+from .serializers import RegisterSerializer, LoginSerializer, ChangePasswordSerializer, PostSerializer, CommentSerializer, LikeSerializer, ProfileSerializer, EmojiSerializer
+from .models import Post, Comment, Like, Profile, Emoji
 from .utils import send_reset_code  # assuming send_reset_code is a function you defined for sending reset codes
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import paypalrestsdk
 from lgbtq_backend.paypal_config import configure_paypal
-from .models import Post, Comment, Like
-from .serializers import PostSerializer, CommentSerializer, LikeSerializer
 
 # User Authentication Views
-class RegisterView(APIView):
+class RegisterView(generics.CreateAPIView):
+    serializer_class = RegisterSerializer
+
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
@@ -26,14 +26,19 @@ class RegisterView(APIView):
             return Response({"message": "User registered successfully!"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class LoginView(APIView):
+
+class LoginView(generics.GenericAPIView):
+    serializer_class = LoginSerializer
+
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
             return Response({"message": "Login successful!"})
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class PasswordResetView(APIView):
+
+# Password Reset Views
+class PasswordResetView(generics.GenericAPIView):
     def post(self, request):
         email = request.data.get('email')
         if not User.objects.filter(email=email).exists():
@@ -43,7 +48,8 @@ class PasswordResetView(APIView):
         code = send_reset_code(email)
         return Response({"message": f"Reset code sent to {email}.", "reset_code": code})
 
-class ChangePasswordView(APIView):
+
+class ChangePasswordView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -64,13 +70,59 @@ class ChangePasswordView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+# Post Views
+class PostListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)  # Associate post with logged-in user
+
+
+class PostDetailView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+
+
+# Comment Views
+class CommentListCreateView(generics.ListCreateAPIView):
+    serializer_class = CommentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        post_id = self.kwargs['post_id']
+        return Comment.objects.filter(post__id=post_id)
+
+    def perform_create(self, serializer):
+        post_id = self.kwargs['post_id']
+        post = Post.objects.get(id=post_id)
+        serializer.save(user=self.request.user, post=post)
+
+
+# Like Views
+class LikeToggleView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, post_id):
+        try:
+            post = Post.objects.get(pk=post_id)
+        except Post.DoesNotExist:
+            return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        like, created = Like.objects.get_or_create(user=request.user, post=post)
+        if not created:
+            like.delete()  # Remove like if it already exists
+            return Response({"message": "Like removed"}, status=status.HTTP_200_OK)
+        return Response({"message": "Post liked"}, status=status.HTTP_201_CREATED)
+
+
 # PayPal Views
 @csrf_exempt
 def create_paypal_order(request):
-    # Ensure that PayPal is configured
     configure_paypal()
 
-    # Create the payment order
     payment = paypalrestsdk.Payment({
         "intent": "sale",
         "payer": {
@@ -78,7 +130,7 @@ def create_paypal_order(request):
         },
         "transactions": [{
             "amount": {
-                "total": "100.00",  # Amount to be paid
+                "total": "100.00",
                 "currency": "USD"
             },
             "description": "Payment for services"
@@ -89,7 +141,6 @@ def create_paypal_order(request):
         }
     })
 
-    # Create the payment
     if payment.create():
         return JsonResponse({"approval_url": next(link.href for link in payment.links if link.rel == "approval_url")})
     else:
@@ -130,60 +181,31 @@ def profile_view(request):
         'profile_form': profile_form
     }
     return render(request, 'accounts/profile.html', context)
-class PostListCreateView(APIView):
-    permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        posts = Post.objects.all()
-        serializer = PostSerializer(posts, many=True)
-        return Response(serializer.data)
 
-    def post(self, request):
-        serializer = PostSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(user=request.user)  # Associate post with logged-in user
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# ViewSets for Profile, Post, Comment, Like, and Emoji Models
+class ProfileViewSet(viewsets.ModelViewSet):
+    queryset = Profile.objects.all()
+    serializer_class = ProfileSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
-class PostDetailView(APIView):
-    permission_classes = [IsAuthenticated]
+class PostViewSet(viewsets.ModelViewSet):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
-    def get(self, request, pk):
-        try:
-            post = Post.objects.get(pk=pk)
-        except Post.DoesNotExist:
-            return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
+class CommentViewSet(viewsets.ModelViewSet):
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
-        serializer = PostSerializer(post)
-        return Response(serializer.data)
+class LikeViewSet(viewsets.ModelViewSet):
+    queryset = Like.objects.all()
+    serializer_class = LikeSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
-class CommentCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+class EmojiViewSet(viewsets.ModelViewSet):
+    queryset = Emoji.objects.all()
+    serializer_class = EmojiSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
-    def post(self, request, post_id):
-        try:
-            post = Post.objects.get(pk=post_id)
-        except Post.DoesNotExist:
-            return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = CommentSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(user=request.user, post=post)  # Associate comment with user and post
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class LikeToggleView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, post_id):
-        try:
-            post = Post.objects.get(pk=post_id)
-        except Post.DoesNotExist:
-            return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        # Toggle the like status for the user on the post
-        like, created = Like.objects.get_or_create(user=request.user, post=post)
-        if not created:
-            like.delete()  # Remove like if it already exists
-            return Response({"message": "Like removed"}, status=status.HTTP_200_OK)
-        return Response({"message": "Post liked"}, status=status.HTTP_201_CREATED)
