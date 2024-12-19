@@ -6,7 +6,12 @@ from .serializers import RegisterSerializer, LoginSerializer, ChangePasswordSeri
 from django.contrib.auth.models import User
 from django.contrib.auth import update_session_auth_hash
 from .utils import send_reset_code  # assuming send_reset_code is a function you defined for sending reset codes
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import paypalrestsdk
+from lgbtq_backend.paypal_config import configure_paypal
 
+# User Authentication Views
 class RegisterView(APIView):
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -51,3 +56,48 @@ class ChangePasswordView(APIView):
             return Response({"detail": "Password changed successfully."}, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# PayPal Views
+@csrf_exempt
+def create_paypal_order(request):
+    # Ensure that PayPal is configured
+    configure_paypal()
+
+    # Create the payment order
+    payment = paypalrestsdk.Payment({
+        "intent": "sale",
+        "payer": {
+            "payment_method": "paypal"
+        },
+        "transactions": [{
+            "amount": {
+                "total": "100.00",  # Amount to be paid
+                "currency": "USD"
+            },
+            "description": "Payment for services"
+        }],
+        "redirect_urls": {
+            "return_url": "http://localhost:8000/execute",
+            "cancel_url": "http://localhost:8000/cancel"
+        }
+    })
+
+    # Create the payment
+    if payment.create():
+        return JsonResponse({"approval_url": next(link.href for link in payment.links if link.rel == "approval_url")})
+    else:
+        return JsonResponse({"error": "Unable to create PayPal payment"})
+
+
+@csrf_exempt
+def execute_payment(request):
+    payment_id = request.GET.get('paymentId')
+    payer_id = request.GET.get('PayerID')
+
+    payment = paypalrestsdk.Payment.find(payment_id)
+
+    if payment.execute({"payer_id": payer_id}):
+        return JsonResponse({"message": "Payment successfully executed"})
+    else:
+        return JsonResponse({"error": "Payment execution failed"})

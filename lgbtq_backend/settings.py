@@ -83,7 +83,6 @@ DATABASES = {
         'PASSWORD': 'USg03Qv8QnDDSEmpf372TL0aeqcMBfrW',  # Your PostgreSQL password
         'HOST': 'dpg-cthvstlumphs73fn2p4g-a.oregon-postgres.render.com',  # The hostname for your database
         'PORT': '5432',  # The port for PostgreSQL
-        
     }
 }
 
@@ -128,3 +127,10 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# PayPal Configuration
+PAYPAL_CLIENT_ID = 'ARVp3O6nFiqzjYz_6uMcnhZaxvw0Nyh6mvYqTLUpnLUBCn51tiCtHPVwAyM-qJYjbPOG0Wn8pNLdXeul'
+PAYPAL_SECRET_KEY = 'EBHAjZgTLU05kDd0JOqyyhCMsSmw19hSZU6DHexs3i8YjcTBbceLIN24y5_w5RZKt4CcV14bdLQP4udT'
+PAYPAL_MODE = 'live'  # Set to 'live' when you're ready to go live
+
