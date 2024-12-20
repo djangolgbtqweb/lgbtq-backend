@@ -22,7 +22,7 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='').split(',')
 
 # Add Render domain dynamically if not in DEBUG mode
 if not DEBUG:
-    RENDER_HOST = 'lgbtq-backend-kjvs.onrender.com'  # Replace with your actual Render domain
+    RENDER_HOST = 'lgbtq-backend-2.onrender.com'  # Replace with your actual Render domain
     if RENDER_HOST not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(RENDER_HOST)
 
