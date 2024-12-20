@@ -1,8 +1,7 @@
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from rest_framework import serializers
-from .models import Profile, Post, Comment, Like, Emoji
-
+from .models import Profile, Post, Comment, Like, Emoji, Blog
 
 # Serializer for user registration
 class RegisterSerializer(serializers.ModelSerializer):
@@ -99,3 +98,21 @@ class EmojiSerializer(serializers.ModelSerializer):
     class Meta:
         model = Emoji
         fields = ['id', 'name', 'symbol', 'created_at']
+
+
+# Serializer for the Blog model (with payment functionality)
+class BlogSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()  # Display the user's username
+    paid = serializers.BooleanField(default=False)  # To check if the blog was paid for
+
+    class Meta:
+        model = Blog
+        fields = ['id', 'user', 'title', 'content', 'created_at', 'updated_at', 'paid', 'image']
+
+    def create(self, validated_data):
+        # You can enforce that a blog can only be created after payment
+        if not validated_data.get('paid', False):
+            raise serializers.ValidationError("You must pay $10 to post a blog.")
+
+        blog = Blog.objects.create(**validated_data)
+        return blog

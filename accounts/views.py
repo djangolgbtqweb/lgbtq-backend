@@ -7,13 +7,16 @@ from rest_framework import generics, status, viewsets
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from django.contrib.auth import update_session_auth_hash
-from .serializers import RegisterSerializer, LoginSerializer, ChangePasswordSerializer, PostSerializer, CommentSerializer, LikeSerializer, ProfileSerializer, EmojiSerializer
-from .models import Post, Comment, Like, Profile, Emoji
+from .serializers import RegisterSerializer, LoginSerializer, ChangePasswordSerializer, PostSerializer, CommentSerializer, LikeSerializer, ProfileSerializer, EmojiSerializer, BlogSerializer
+from .models import Post, Comment, Like, Profile, Emoji, Blog
 from .utils import send_reset_code  # assuming send_reset_code is a function you defined for sending reset codes
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import paypalrestsdk
 from lgbtq_backend.paypal_config import configure_paypal
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+
 
 # User Authentication Views
 class RegisterView(generics.CreateAPIView):
@@ -85,6 +88,14 @@ class PostDetailView(generics.RetrieveAPIView):
     queryset = Post.objects.all()
     serializer_class = PostSerializer
 
+class PostDeleteView(generics.DestroyAPIView):
+    queryset = Post.objects.all()
+    serializer_class = PostSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_destroy(self, instance):
+        instance.delete()  # Custom deletion logic if needed
+
 
 # Comment Views
 class CommentListCreateView(generics.ListCreateAPIView):
@@ -99,6 +110,13 @@ class CommentListCreateView(generics.ListCreateAPIView):
         post_id = self.kwargs['post_id']
         post = Post.objects.get(id=post_id)
         serializer.save(user=self.request.user, post=post)
+class CommentDeleteView(generics.DestroyAPIView):
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_destroy(self, instance):
+        instance.delete()  # Custom deletion logic if needed
 
 
 # Like Views
@@ -183,6 +201,31 @@ def profile_view(request):
     return render(request, 'accounts/profile.html', context)
 
 
+# Blog Create View (newly added)
+class BlogCreateView(generics.CreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = BlogSerializer  # You need to create a BlogSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)  # Associate the blog post with the logged-in user
+class BlogListView(generics.ListAPIView):
+    queryset = Blog.objects.all()  # Replace with your actual model if needed
+    serializer_class = BlogSerializer  # Ensure this matches your serializer
+    permission_classes = [IsAuthenticatedOrReadOnly]  # Adjust based on your requirements
+class BlogDetailView(generics.RetrieveAPIView):
+    queryset = Blog.objects.all()  # Make sure your model is correct
+    serializer_class = BlogSerializer  # Ensure this serializer is correctly defined for your model
+    permission_classes = [IsAuthenticatedOrReadOnly]  # You can adjust this based on your permissions
+
+class BlogDeleteView(generics.DestroyAPIView):
+    queryset = Blog.objects.all()  # Specify the model
+    serializer_class = BlogSerializer  # Use the Blog serializer
+    permission_classes = [IsAuthenticated]  # Ensure only authenticated users can delete blogs
+
+    def perform_destroy(self, instance):
+        instance.delete()  # Custom deletion logic if needed
+
+
 # ViewSets for Profile, Post, Comment, Like, and Emoji Models
 class ProfileViewSet(viewsets.ModelViewSet):
     queryset = Profile.objects.all()
@@ -209,3 +252,25 @@ class EmojiViewSet(viewsets.ModelViewSet):
     serializer_class = EmojiSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
+
+# Profile Update View
+class ProfileUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user_form = UserUpdateForm(instance=request.user)
+        profile_form = ProfileUpdateForm(instance=request.user.profile)
+        return render(request, 'accounts/profile_update.html', {'user_form': user_form, 'profile_form': profile_form})
+
+    def post(self, request):
+        user_form = UserUpdateForm(request.POST, instance=request.user)
+        profile_form = ProfileUpdateForm(request.POST, request.FILES, instance=request.user.profile)
+
+        if user_form.is_valid() and profile_form.is_valid():
+            user_form.save()
+            profile_form.save()
+            messages.success(request, "Your profile has been updated!")
+            return redirect('profile')
+        else:
+            messages.error(request, "Please correct the error below.")
+        return render(request, 'accounts/profile_update.html', {'user_form': user_form, 'profile_form': profile_form})
