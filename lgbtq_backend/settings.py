@@ -121,7 +121,7 @@ PAYPAL_SECRET_KEY = config('PAYPAL_SECRET_KEY')
 PAYPAL_MODE = config('PAYPAL_MODE', default='sandbox')  # Use 'live' for production
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='').split(',')
+#CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='').split(',')
 
 # Production Checklist Settings
 if not DEBUG:
