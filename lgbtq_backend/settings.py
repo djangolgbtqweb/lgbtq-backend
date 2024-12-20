@@ -17,7 +17,16 @@ if SECRET_KEY is None:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
+# Define ALLOWED_HOSTS
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='').split(',')
+
+# Add Render domain dynamically if not in DEBUG mode
+if not DEBUG:
+    RENDER_HOST = 'lgbtq-backend-kjvs.onrender.com'  # Replace with your actual Render domain
+    if RENDER_HOST not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(RENDER_HOST)
+
+print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")  # For debugging purposes
 
 # Application definition
 INSTALLED_APPS = [
