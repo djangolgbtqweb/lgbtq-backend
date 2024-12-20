@@ -1,6 +1,10 @@
+import logging
 from pathlib import Path
 from decouple import Config, Csv
 import dj_database_url
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # Define BASE_DIR
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,8 +30,8 @@ if not DEBUG:
     if RENDER_HOST not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(RENDER_HOST)
 
-# Print ALLOWED_HOSTS for debugging
-print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")  # For debugging purposes
+# Log ALLOWED_HOSTS for debugging purposes
+logger.info(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")
 
 # Application definition
 INSTALLED_APPS = [
@@ -121,7 +125,8 @@ PAYPAL_SECRET_KEY = config('PAYPAL_SECRET_KEY')
 PAYPAL_MODE = config('PAYPAL_MODE', default='sandbox')  # Use 'live' for production
 
 # CORS Configuration
-#CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='').split(',')
+# Uncomment this when frontend is ready
+# CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='').split(',')
 
 # Production Checklist Settings
 if not DEBUG:
@@ -132,4 +137,5 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_SSL_REDIRECT = True
+
 
