@@ -26,6 +26,7 @@ if not DEBUG:
     if RENDER_HOST not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(RENDER_HOST)
 
+# Print ALLOWED_HOSTS for debugging
 print(f"ALLOWED_HOSTS: {ALLOWED_HOSTS}")  # For debugging purposes
 
 # Application definition
@@ -131,3 +132,4 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_SSL_REDIRECT = True
+
